@@ -1,12 +1,22 @@
+# Compiler
 CC = gcc
-CFLAGS = -Wall -Wextra -O2
-TARGET = server
+
+# Compiler flags
+CFLAGS = -Wall -Wextra -O2 `python3-config --cflags` 
+
+# Linker flags
+LDFLAGS = `python3-config --ldflags` -lpython3.12
+
+# Source and output
 SRC = server.c
+OUT = server
 
-all: $(TARGET)
+# Default target
+all: $(OUT)
 
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
+$(OUT): $(SRC)
+	$(CC) $(CFLAGS) -o $(OUT) $(SRC) $(LDFLAGS)
 
+# Clean up compiled files
 clean:
-	rm -f $(TARGET)
+	rm -f $(OUT)

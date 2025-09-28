@@ -2,7 +2,7 @@
 # advertising ID
 #
 # Syntax:
-#  python3 client.py URL AdID SiteID -port 41000 -server 127.0.0.1 -tries 5 -gap 1
+#  python3 client.py http://ns-mn1.cse.nd.edu/cse30264/ads/file1.html IRISH_CSE S1 -port 41000 -server 127.0.0.1 -tries 5 -gap 1
 #
 # URL is required and is the URL to check
 # AdID is the string to look for (must be contiguous)
