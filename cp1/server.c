@@ -1,8 +1,6 @@
 
 /*NOTES: Ports from 54000 to 54150 on http://ns-mn1.cse.nd.edu/cse30264/ads/file1.html*/
 
-
-#include </usr/include/python3.12/Python.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -30,8 +28,9 @@ int main(int argc, char const* argv[])
         return EXIT_FAILURE;
     }
 
-    int tmp = atoi(argv[1]);
+    int tmp = atoi(argv[1]); //turn agv[1] into int
 
+    //check port is within range
     if (tmp < 54000 || tmp > 54150){
         fprintf(stderr, "Port %d is out of range. Must be between 54000-54150.\n", tmp);
         return EXIT_FAILURE;
@@ -128,42 +127,37 @@ int main(int argc, char const* argv[])
         if (!fork()) { // this is the child process
 			close(sockfd); // child doesn't need the listener
             if (recv(new_fd,clientMsg, sizeof(clientMsg), 0) == -1) perror("rcecv");
-            printf("Message from client: %s\n", clientMsg);
             
-            int result = check_message(clientMsg, new_fd);
+            printf("Message from client: %s\n", clientMsg);
+            int result = check_message(clientMsg, new_fd); // check message format
+            
             if (result == 200){
                 printf("Valid message\n");
-                if (Py_IsInitialized()) {
-                printf("Python interpreter initialized successfully.\n");}
-
-                PyObject *name, *load_module,*func,*callfunc, *args;
-
-                name = PyUnicode_FromString("scanner" );  
-                load_module = PyImport_Import(name); 
-                Py_DECREF(name);
-
-                func = PyObject_GetAttrString(load_module,(char *)"main");
-                PyObject *arg0 = PyUnicode_FromString(clientMsg);
-                args = PyTuple_Pack(1, arg0);
-                Py_DECREF(arg0);
-
-                callfunc = PyObject_CallObject(func,args);
-                const char *pyfunc = PyUnicode_AsUTF8(callfunc);
                 
-                Py_DECREF(callfunc);
-                Py_DECREF(args);
-                Py_DECREF(func);
-                Py_DECREF(load_module);
-                Py_Finalize();
+                //create child process to run scanner.py
+                pid_t pid = fork();
+                
+                if (pid < 0) {
+                        perror("fork failed");
+                        return 1;
+                } else if (pid == 0) {
+                    char fd_str[16];
+                    snprintf(fd_str, sizeof(fd_str), "%d", new_fd);
 
-                send(new_fd, pyfunc, sizeof(pyfunc), 0);  // send to the client
+                    execlp("python3", "python3", "scanner.py", clientMsg, fd_str, argv[2], (char *)NULL);
+                    perror("execlp failed");
+                    exit(1);
+                } else {
+                    // Parent process
+                    int status;
+                    waitpid(pid, &status, 0);
+                }   
+
             } else {
                 printf("Invalid message\n");
                 exit(0);
             }
             
-
-			// if (send(new_fd, "Hello, world!", 13, 0) == -1) perror("send");
 			close(new_fd);
 			exit(0);
 		}
@@ -197,8 +191,9 @@ void *get_in_addr(struct sockaddr *sa){
 
 int check_message(char* message, int client_socket) {
     char errMsg[255] = "400 ERROR: Incorrect number of arguments.\n";     
-    
     char *copy = strdup(message);
+
+    //check if message is not NULL
     if (copy == NULL){
         send(client_socket, errMsg, sizeof(errMsg), 0);
         return 400;
@@ -206,17 +201,21 @@ int check_message(char* message, int client_socket) {
 
     int count = 0;
     char *tok = strtok(copy, " ");
+
+    //check if first argument is CHECK
     if (strcmp(tok,"CHECK")){
         strcpy(errMsg, "404 ERROR: First argument must be CHECK.\n");
         send(client_socket, errMsg, sizeof(errMsg), 0);
         return 400;
     }
+
+    //count number of arguments
     while (tok != NULL) {
         count++;
-        printf("Token %d: %s\n", count, tok);
         tok = strtok(NULL, " ");
     }
 
+    //check if number of arguments is valid
     if (count == 0 || count > 4){ 
         send(client_socket, errMsg, sizeof(errMsg), 0);
         return 400;
