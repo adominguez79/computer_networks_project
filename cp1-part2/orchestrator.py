@@ -8,7 +8,7 @@ import queue
 
 UDP_IP = "0.0.0.0"
 
-# Workers: { identifier: {host, port, last_sent, last_response} }
+# Workers: { identifier: {host, port, last_sent} }
 worker_pool = {}
 
 # Job queue: list of (job_string, client_addr)
@@ -16,6 +16,22 @@ job_queue = queue.Queue()
 
 # Hit records: list of dicts
 hits = []
+
+def return_hits(message, addr, udp_sock):
+    lines = []
+    for hit in hits:
+        line = f"{hit[0]} {hit[1]} {hit[2]} {hit[3]} {hit[4]}"
+        lines.append(line)
+    message = "\n".join(lines)
+    udp_sock.sendto(message.encode(), addr)
+
+def pool_status(addr, udp_sock):
+    lines = []
+    for ident, info in worker_pool.items():
+        line = f"{ident} {info['port']} LastSent: {info['last_sent']}"
+        lines.append(line)
+        message = "\n".join(lines)
+        udp_sock.sendto(message.encode(), addr)
 
 # Handles request from client
 def handle_request(message, addr, udp_sock):
@@ -39,7 +55,6 @@ def register_worker(message, addr):
         "host": host,
         "port": port,
         "last_sent": None,
-        "last_response": None
     }
     print(f"Worker {ident} registered: {host}:{port}")
 
@@ -99,9 +114,12 @@ def main(port):
                     #Message from client
                     elif message.startswith("CHECK"):
                         handle_request(message, addr, udpsockfd)
+                    elif message.startswith("STATUS"):
+                        pool_status(addr, udpsockfd)
+                    elif message.startswith("HITS"):
+                        return_hits(addr, udpsockfd)
                     else:
                         print(f"Unknown message from {addr}: {message}")
-
             dispatch_jobs()
 
     except KeyboardInterrupt:

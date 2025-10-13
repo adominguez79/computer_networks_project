@@ -9,7 +9,7 @@ from time import sleep
 
 def main(identifier, website, siteID, sockfd, delim):
     result_time = None
-
+    hits = []
     #create dir if it doesn't exist 
     try:
         os.chdir(siteID)
@@ -32,7 +32,7 @@ def main(identifier, website, siteID, sockfd, delim):
                 img_tags = re.findall(r'<img[^>]*src=["\']([^"\']+)["\']', text[i+1], re.IGNORECASE)
                 filename =  result_time + ".jpg"   
                 img_response = requests.get(img_tags[0])
-
+                hits.append((identifier, website,siteID, delim, result_time))
                 if img_response.status_code == 200:
                     with open(filename, 'wb') as f:
                         f.write(img_response.content)
@@ -45,13 +45,10 @@ def main(identifier, website, siteID, sockfd, delim):
 
     #send results to clients            
     if result_time is None:
-        message = "200 NO"
-        sockfd.sendall(message.encode())
+        return 0
     else:
-        message = "200 YES " + siteID + " " + result_time
-        sockfd.sendall(message.encode())
-    os.chdir("..")
-    return 0
+        return hits
+
             
 
 if __name__ == "__main__":

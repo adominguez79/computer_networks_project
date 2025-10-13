@@ -1,3 +1,4 @@
+#python3 launch-worker.py  0.0.0.0 54000 0.0.0.0 54002 2
 import os
 import sys
 import subprocess
@@ -11,17 +12,17 @@ def main():
         usage()
 
     orch_ip = sys.argv[1]
-    orch_port = int(sys.argv[2])
+    orch_port = sys.argv[2]
     worker_ip = sys.argv[3]
-    starting_port = int(sys.argv[4])
-    num_workers = int(sys.argv[5])
+    starting_port = sys.argv[4]
+    num_workers = sys.argv[5]
 
-    if num_workers < 1 or num_workers > 5:
+    if int(num_workers) < 1 or int(num_workers) > 5:
         print("ERROR: You can only launch between 1 and 5 workers.")
         sys.exit(1)
 
-    for i in range(num_workers):
-        port = starting_port + i
+    for i in range(int(num_workers)):
+        port = int(starting_port) + i
         if port < 54000 or port > 54150:
             print(f"ERROR: Port {port} is out of range. Must be between 54000-54150.")
             sys.exit(1)
@@ -32,12 +33,12 @@ def main():
 
         cmd = [
             "python3", "worker.py",
-            port,
-            log_dir,
-            worker_ip,
-            orch_ip,
-            orch_port,
-            worker_id
+            str(port),
+            str(log_dir),
+            str(worker_ip),
+            str(orch_ip),
+            str(orch_port),
+            str(worker_id)
         ]
 
         print(f"Launching {worker_id} on port {port}...")
