@@ -23,7 +23,7 @@ def main():
 
         # Receive reply
         data, _ = sock.recvfrom(4096)
-        print("[Pool Status]" + data.decode())
+        print(f"[Pool Status] {data.decode()}")
 
     except socket.timeout:
         print("[pool-status] Timed out waiting for reply.")

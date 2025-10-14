@@ -37,17 +37,17 @@ def main(identifier, website, siteID, sockfd, delim):
                     with open(filename, 'wb') as f:
                         f.write(img_response.content)
                         sleep(1) #wait for unique timestamp
-                    print(f"[{identifier}]Image downloaded and saved as {filename}")
+                    print(f"[{identifier}] Image downloaded and saved as {filename}")
                 else:
-                    print(f"[{identifier}]Failed to download image. Status code: {img_response.status_code}")
+                    print(f"[{identifier}] Failed to download image. Status code: {img_response.status_code}")
             else:
                 print("No next line (end of text)")
 
     #send results to clients            
     if result_time is None:
-        return 0
+        return None
     else:
-        return hits
+        return result_time
 
             
 

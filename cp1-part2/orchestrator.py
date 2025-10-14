@@ -1,8 +1,6 @@
 import socket
 import sys
-import argparse
 import time
-import math
 import select
 import queue
 
@@ -17,28 +15,56 @@ job_queue = queue.Queue()
 # Hit records: list of dicts
 hits = []
 
-def return_hits(message, addr, udp_sock):
+def return_hits(message, addr, updsockfd):
+    parts = message.strip().split()
+    if len(parts) != 2:
+        print(f"Invalid GET_HITS message: {message}")
+        return
+    _, n = parts
     lines = []
-    for hit in hits:
-        line = f"{hit[0]} {hit[1]} {hit[2]} {hit[3]} {hit[4]}"
+    for h in range(int(n)):
+        try:
+            hit = hits[h]
+        except IndexError:
+            break
+        line = f"{hit[0]} {hit[1]} {hit[2]} {hit[3]}"
         lines.append(line)
     message = "\n".join(lines)
-    udp_sock.sendto(message.encode(), addr)
+    updsockfd.sendto(message.encode(), addr)
+    print("Sending hits")
 
-def pool_status(addr, udp_sock):
+def add_hit(message):
+    parts = message.strip().split()
+    if len(parts) != 5:
+        print(f"Invalid HIT message: {message}")
+        return
+    _, identifier, siteID, delim, time = parts
+    pool_status[identifier]['last_sent'] = time.time()
+    hits.append((identifier, siteID, delim, time))
+    print(f"Recorded hit from {identifier} on {siteID} at {time}")
+
+def pool_status(addr, updsockfd):
     lines = []
+    recieved_formated, sent_formated = "None", "None"
     for ident, info in worker_pool.items():
-        line = f"{ident} {info['port']} LastSent: {info['last_sent']}"
+        sent_timestamp = info['last_sent']
+        recieved_timestamp = info['last_recieved']
+        if recieved_timestamp is not None:
+            recieved_formated = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(recieved_timestamp))
+        if sent_timestamp is not None:
+            sent_formated = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(sent_timestamp))
+
+        line = f"{ident} Port:{info['port']} Last Sent: {sent_formated} Last Recieved: {recieved_formated}"
         lines.append(line)
         message = "\n".join(lines)
-        udp_sock.sendto(message.encode(), addr)
+        updsockfd.sendto(message.encode(), addr)
 
 # Handles request from client
-def handle_request(message, addr, udp_sock):
+def handle_request(message, addr, updsockfd):
     job_queue.put((message, addr))
     print(f"Job queued from {addr}")
     message = "200 OK"
-    udp_sock.sendto(message.encode(), addr)
+    updsockfd.sendto(message.encode(), addr)
 
 # Reregister a woker
 def register_worker(message, addr):
@@ -55,8 +81,22 @@ def register_worker(message, addr):
         "host": host,
         "port": port,
         "last_sent": None,
+        "last_recieved": None,
     }
-    print(f"Worker {ident} registered: {host}:{port}")
+    print(f"Worker ({ident}) registered: {host}:{port}") 
+
+# Deregister a worker
+def deregister_worker(message, addr):
+
+    parts = message.strip().split()
+    if len(parts) != 2:
+        print(f"Invalid message from {addr}")
+        return
+
+    _, ident = parts
+
+    worker_pool.pop(ident, None)
+    print(f"Worker {ident} deregistered")
 
 
 #Assing job from queue to worker
@@ -98,10 +138,13 @@ def main(port):
 
     udpsockfd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udpsockfd.bind((UDP_IP, port))
-    print(f"Orchestrator Listening on {UDP_IP}:{port}")
+    hostname = socket.gethostname()
+    IPAddr = socket.gethostbyname(hostname)
+    print(f"Orchestrator Listening on {IPAddr}:{port}")
 
     try:
         while True:
+            # Use select to wait for incoming UDP messages
             readable, _, _ = select.select([udpsockfd], [], [], 0.5)
 
             for sock in readable:
@@ -111,13 +154,18 @@ def main(port):
                     #Message from worker
                     if message.startswith("REGISTER"):
                         register_worker(message, addr)
+                    elif message.startswith("DEREGISTER"):
+                        deregister_worker(message, addr)
                     #Message from client
                     elif message.startswith("CHECK"):
                         handle_request(message, addr, udpsockfd)
                     elif message.startswith("STATUS"):
+                        print("Sending pool status")
                         pool_status(addr, udpsockfd)
-                    elif message.startswith("HITS"):
-                        return_hits(addr, udpsockfd)
+                    elif message.startswith("GET_HITS"):
+                        return_hits(message, addr, udpsockfd)
+                    elif message.startswith("HIT"):
+                        add_hit(message)
                     else:
                         print(f"Unknown message from {addr}: {message}")
             dispatch_jobs()

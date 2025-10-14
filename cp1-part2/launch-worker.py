@@ -4,17 +4,18 @@ import sys
 import subprocess
 
 def  usage():
-    print("Usage: launch-workers.py <orchestrator_ip> <orchestrator_port> <worker_ip> <starting_port> <num_workers>")
+    print("Usage: launch-workers.py <worker_ip> <starting_port> <orchestrator_ip> <orchestrator_port> <num_workers>")
     sys.exit(1)
 
 def main():
     if len(sys.argv) != 6:
         usage()
 
-    orch_ip = sys.argv[1]
-    orch_port = sys.argv[2]
-    worker_ip = sys.argv[3]
-    starting_port = sys.argv[4]
+    
+    worker_ip = sys.argv[1]
+    starting_port = sys.argv[2]
+    orch_ip = sys.argv[3]
+    orch_port = sys.argv[4]
     num_workers = sys.argv[5]
 
     if int(num_workers) < 1 or int(num_workers) > 5:
@@ -33,9 +34,8 @@ def main():
 
         cmd = [
             "python3", "worker.py",
-            str(port),
-            str(log_dir),
             str(worker_ip),
+            str(port),
             str(orch_ip),
             str(orch_port),
             str(worker_id)

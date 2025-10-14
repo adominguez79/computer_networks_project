@@ -1,3 +1,5 @@
+#python3 check-hits.py 127.0.1.1 54000 
+
 import socket
 import sys
 
@@ -21,18 +23,18 @@ def main():
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        # Send STATUS command
-        msg = "HITS"
+        # Send HITS command
+        msg = f"GET_HITS {hits}"
         sock.sendto(msg.encode(), (orchestrator_ip, orchestrator_port))
 
         # Receive reply
         data, _ = sock.recvfrom(4096)
-        print("[check-hits]" + data.decode())
+        print(f"Current hits:\n{data.decode()}" )
 
     except socket.timeout:
-        print("[check-hits] Timed out waiting for reply.")
+        print("Timed out waiting for reply.")
     except Exception as e:
-        print(f"[check-hits] Error: {e}")
+        print(f"Error: {e}")
     finally:
         sock.close()
 
