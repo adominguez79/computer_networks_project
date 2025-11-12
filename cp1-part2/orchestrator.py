@@ -15,6 +15,9 @@ job_queue = queue.Queue()
 # Hit records: list of dicts
 hits = []
 
+#Track worker
+last_worker = 0
+
 def return_hits(message, addr, updsockfd):
     parts = message.strip().split()
     if len(parts) != 2:
@@ -40,24 +43,25 @@ def add_hit(message):
         return
     _, identifier, siteID, delim, time_recorded = parts
     worker_pool[identifier]['last_sent'] = time.time()
-    hits.append((identifier, siteID, delim, time))
+    hits.append((identifier, siteID, delim, time_recorded))
     print(f"Recorded hit from {identifier} on {siteID} at {time_recorded}")
 
 def pool_status(addr, updsockfd):
     lines = []
-    recieved_formated, sent_formated = "None", "None"
+    message = ""
+    received_formated, sent_formated = "None", "None"
     for ident, info in worker_pool.items():
         sent_timestamp = info['last_sent']
-        recieved_timestamp = info['last_recieved']
-        if recieved_timestamp is not None:
-            recieved_formated = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(recieved_timestamp))
+        received_timestamp = info['last_received']
+        if received_timestamp is not None:
+            received_formated = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(received_timestamp))
         if sent_timestamp is not None:
             sent_formated = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(sent_timestamp))
 
-        line = f"{ident} Port:{info['port']} Last Sent: {sent_formated} Last Recieved: {recieved_formated}"
+        line = f"{ident} Port:{info['port']} Last Sent: {sent_formated} Last received: {received_formated}"
         lines.append(line)
-        message = "\n".join(lines)
-        updsockfd.sendto(message.encode(), addr)
+    message += "\n".join(lines)
+    updsockfd.sendto(message.encode(), addr)
 
 # Handles request from client
 def handle_request(message, addr, updsockfd):
@@ -81,7 +85,7 @@ def register_worker(message, addr):
         "host": host,
         "port": port,
         "last_sent": None,
-        "last_recieved": None,
+        "last_received": None,
     }
     print(f"Worker ({ident}) registered: {host}:{port}") 
 
@@ -101,26 +105,27 @@ def deregister_worker(message, addr):
 
 #Assing job from queue to worker
 def dispatch_jobs():
+    global last_worker
     if job_queue.empty() or not worker_pool:
         return
 
     job, client_addr = job_queue.get()
 
-    for ident, info in worker_pool.items():
-        try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.connect((info["host"], info["port"]))
-                s.sendall(job.encode())
-                print(f"Job dispatched to {ident}")
-                info["last_sent"] = time.time()
-                s.close()
-                break
-        except Exception as e:
-            print(f"Could not send to {ident}: {e}")
-            continue
-    else:
-        # No worker could take job
+    workers = list(worker_pool.items())
+    ident, info = workers[last_worker % len(workers)]
+    last_worker += 1
+
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((info["host"], info["port"]))
+        s.sendall(job.encode())
+        print(f"Job dispatched to {ident}")
+        info["last_received"] = time.time()
+    except Exception as e:
+        print(f"Could not send to {ident}: {e}")
         job_queue.put((job, client_addr))
+    finally:
+        s.close()
 
 #Send terminate signal when CRLT-C
 def terminate_workers():
