@@ -38,8 +38,8 @@ def add_hit(message):
     if len(parts) != 5:
         print(f"Invalid HIT message: {message}")
         return
-    _, identifier, siteID, delim, time = parts
-    pool_status[identifier]['last_sent'] = time.time()
+    _, identifier, siteID, delim, time_recorded = parts
+    worker_pool[identifier]['last_sent'] = time.time()
     hits.append((identifier, siteID, delim, time))
     print(f"Recorded hit from {identifier} on {siteID} at {time}")
 
