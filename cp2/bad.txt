@@ -1,0 +1,15 @@
+Data Min:0.7197
+Data Max:0.7931
+Data Median:0.7638
+Data Mean:0.763
+Data Standard Deviation:0.01858
+Mean Min:0.7064
+Mean Max:0.7589
+Mean Median:0.7324
+Mean Mean:0.7303
+Mean Standard Deviation:0.01384
+Peak Min:0.6959
+Peak Max:0.7576
+Peak Median:0.7233
+Peak Mean:0.7278
+Peak Standard Deviation:0.01986

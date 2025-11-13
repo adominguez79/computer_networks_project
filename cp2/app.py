@@ -1,9 +1,8 @@
-import argparse
 import json
 from collections import defaultdict
 from flask import Flask, request, jsonify
 PORT = 54079 #Ports from 54000 to 54150
-INPUTJSON = "/escnfs/home/adoming5/computer_networks_project/cp2/data/set1/data-250.json"
+INPUTJSON = "/escnfs/home/adoming5/computer_networks_project/cp2/data/set1/data-all.json"
 
 app = Flask(__name__)
 app = Flask(__name__)
@@ -37,16 +36,22 @@ def filterData (entry, Day, Month, Year, Direction, Interface):
 #    print('Do not filter')
     return True
 
-def getMultidayTests(direction):
+def getMultidayTests(month, year, direction, interface):
     theData = json.loads(open(INPUTJSON).read())
     newJSON = []
-
-    for m in range(1,13):
-        month = f"{m:02}"
+    
+    if month is None:
+        for m in range(1,13):
+            months = f"{m:02}"
+            for day in range(1,32):
+                filteredData = list(filter(lambda entry: filterData(entry, day,months,year,direction,interface), theData))
+                if len(filteredData) > 1:
+                    newJSON += filteredData
+    else: 
         for day in range(1,32):
-            filteredData = list(filter(lambda entry: filterData(entry, day,month,None,direction,None), theData))
-            if len(filteredData) > 1:
-                newJSON += filteredData
+                filteredData = list(filter(lambda entry: filterData(entry, day,month,year,direction,interface), theData))
+                if len(filteredData) > 1:
+                    newJSON += filteredData
     newJSON.sort(key=lambda entry: entry['timestamp'])
     return newJSON
 
@@ -85,63 +90,58 @@ def send_data():
 #Get downlink means
 @app.route("/dl/stat/mean")
 def dl_mean():
-    direction = 'downlink'
-    theData = getMultidayTests(direction)
+    try:
+       month  = request.args["m"]
+    except KeyError:
+        month = None
+    try:
+        year = request.args["y"]
+    except KeyError:
+        year = None
+    try:
+        direction = request.args["dir"]
+    except KeyError:
+        direction = None
+    try:
+        interface = request.args["if"]
+    except KeyError:
+        interface = None
+    theData = getMultidayTests(month, year, direction, interface)
     results = {}
-    results = defaultdict(lambda:[0,0,0],results)
+    results = defaultdict(lambda: {"total": 0, "count": 0, "average": 0})
     for data in theData:
         
-        results[data["timestamp"][0:10]][0] += data["tput_mbps"]
-        results[data["timestamp"][0:10]][1] += 1
-        results[data["timestamp"][0:10]][2] = results[data["timestamp"][0:10]][0] / results[data["timestamp"][0:10]][1]
-        print(data["timestamp"][0:10],results[data["timestamp"][0:10]])
+        results[data["timestamp"][0:10]]["total"] += data["tput_mbps"]
+        results[data["timestamp"][0:10]]["count"] += 1
+        results[data["timestamp"][0:10]]["average"] = results[data["timestamp"][0:10]]["total"] / results[data["timestamp"][0:10]]["count"]
 
     return jsonify(results)
 
-#Send downlink peaks
+#Send peaks
 @app.route("/dl/stat/peak")
 def dl_peak():
-    direction = 'downlink'
-    theData = getMultidayTests(direction)
+    try:
+       month  = request.args["m"]
+    except KeyError:
+        month = None
+    try:
+        year = request.args["y"]
+    except KeyError:
+        year = None
+    try:
+        direction = request.args["dir"]
+    except KeyError:
+        direction = None
+    try:
+        interface = request.args["if"]
+    except KeyError:
+        interface = None
+    theData = getMultidayTests(month, year, direction, interface)
     results = {}
-    results = defaultdict(lambda:[0,0,],results)
-    for data in theData:
-        
-        results[data["timestamp"][0:10]][0] = max(results[data["timestamp"][0:10]][0],data["tput_mbps"])
-        results[data["timestamp"][0:10]][1] += 1
-        print(data["timestamp"][0:10],results[data["timestamp"][0:10]])
-
-    return jsonify(results)
-
-
-#Get uplink means
-@app.route("/ul/stat/mean")
-def ul_mean():
-    direction = 'uplink'
-    theData = getMultidayTests(direction)
-    results = {}
-    results = defaultdict(lambda:[0,0,0],results)
-    for data in theData:
-        
-        results[data["timestamp"][0:10]][0] += data["tput_mbps"]
-        results[data["timestamp"][0:10]][1] += 1
-        results[data["timestamp"][0:10]][2] = results[data["timestamp"][0:10]][0] / results[data["timestamp"][0:10]][1]
-        print(data["timestamp"][0:10],results[data["timestamp"][0:10]])
-
-    return jsonify(results)
-
-#Send uplink peaks
-@app.route("/ul/stat/peak")
-def ul_peak():
-    direction = 'uplink'
-    theData = getMultidayTests(direction)
-    results = {}
-    results = defaultdict(lambda:[0,0,],results)
-    for data in theData:
-        
-        results[data["timestamp"][0:10]][0] = max(results[data["timestamp"][0:10]][0],data["tput_mbps"])
-        results[data["timestamp"][0:10]][1] += 1
-        print(data["timestamp"][0:10],results[data["timestamp"][0:10]])
+    results = defaultdict(lambda: {"peak": 0, "total": 0})
+    for data in theData:    
+        results[data["timestamp"][0:10]]["peak"] = max(results[data["timestamp"][0:10]]["peak"],data["tput_mbps"])
+        results[data["timestamp"][0:10]]["total"] += 1
 
     return jsonify(results)
 
